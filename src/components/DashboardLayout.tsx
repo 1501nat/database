@@ -12,10 +12,11 @@ import {
   LogOut,
   UserCircle,
   Building2,
-  Truck,
+  FileInput,
   BarChart3,
   FolderTree,
   Percent,
+  UserCog,
 } from "lucide-react";
 
 interface DashboardLayoutProps {
@@ -26,10 +27,11 @@ const navigation = [
   { name: "Tổng quan", href: "/dashboard", icon: LayoutDashboard },
   { name: "Chi nhánh", href: "/dashboard/branches", icon: Building2 },
   { name: "Nhân viên", href: "/dashboard/employees", icon: Users },
+  { name: "Tài khoản", href: "/dashboard/users", icon: UserCog, roles: ['admin', 'quan_ly'] },
   { name: "Danh mục", href: "/dashboard/categories", icon: FolderTree },
   { name: "Sản phẩm", href: "/dashboard/products", icon: Package },
   { name: "Tồn kho", href: "/dashboard/inventory", icon: Store },
-  { name: "Nhập hàng", href: "/dashboard/imports", icon: Truck },
+  { name: "Nhập hàng", href: "/dashboard/purchases", icon: FileInput },
   { name: "Bán hàng", href: "/dashboard/sales", icon: ShoppingCart },
   { name: "Khách hàng", href: "/dashboard/customers", icon: UserCircle },
   { name: "Khuyến mãi", href: "/dashboard/promotions", icon: Percent },
@@ -60,24 +62,26 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
 
           {/* Navigation */}
           <nav className="flex-1 space-y-1 px-3 py-4 overflow-y-auto">
-            {navigation.map((item) => {
-              const isActive = location.pathname === item.href;
-              return (
-                <Link
-                  key={item.name}
-                  to={item.href}
-                  className={cn(
-                    "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all",
-                    isActive
-                      ? "bg-primary text-primary-foreground shadow-md"
-                      : "text-muted-foreground hover:text-foreground hover:bg-secondary"
-                  )}
-                >
-                  <item.icon className="w-5 h-5" />
-                  {item.name}
-                </Link>
-              );
-            })}
+            {navigation
+              .filter((item) => !item.roles || (user?.role && item.roles.includes(user.role)))
+              .map((item) => {
+                const isActive = location.pathname === item.href;
+                return (
+                  <Link
+                    key={item.name}
+                    to={item.href}
+                    className={cn(
+                      "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all",
+                      isActive
+                        ? "bg-primary text-primary-foreground shadow-md"
+                        : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+                    )}
+                  >
+                    <item.icon className="w-5 h-5" />
+                    {item.name}
+                  </Link>
+                );
+              })}
           </nav>
 
           {/* User section */}

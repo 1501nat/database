@@ -1,3 +1,14 @@
+/**
+ * Products Page - Trang quản lý sản phẩm
+ * @description CRUD sản phẩm
+ * @api-connections:
+ *   - GET /api/products - Lấy danh sách sản phẩm
+ *   - GET /api/categories - Lấy danh sách danh mục
+ *   - POST /api/products - Tạo sản phẩm mới
+ *   - PUT /api/products/:id - Cập nhật sản phẩm
+ *   - DELETE /api/products/:id - Xóa sản phẩm
+ */
+
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
@@ -10,25 +21,20 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { supabase } from "@/integrations/supabase/client";
+// API: Import services thay vì Supabase
+import * as productService from "@/services/productService";
+import * as categoryService from "@/services/categoryService";
+import { Product } from "@/services/productService";
+import { Category } from "@/services/categoryService";
 import { toast } from "sonner";
 import { Plus, Package, Edit, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-
-interface Product {
-  ma_sp: string;
-  ten_sp: string;
-  don_vi_tinh: string;
-  gia_ban_le: number;
-  trang_thai_sp: string;
-  ma_dm: string;
-}
 
 const Products = () => {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [products, setProducts] = useState<Product[]>([]);
-  const [categories, setCategories] = useState<any[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -53,17 +59,21 @@ const Products = () => {
     if (user) fetchData();
   }, [user]);
 
+  /**
+   * Lấy dữ liệu sản phẩm và danh mục
+   * @api GET /api/products
+   * @api GET /api/categories
+   */
   const fetchData = async () => {
     try {
       setLoading(true);
+      // API: Gọi song song 2 endpoints
       const [productsData, categoriesData] = await Promise.all([
-        supabase.from("san_pham").select("*").order("ma_sp"),
-        supabase.from("danh_muc_san_pham").select("*"),
+        productService.getAll(),   // API: GET /api/products
+        categoryService.getAll(),  // API: GET /api/categories
       ]);
-      if (productsData.error) throw productsData.error;
-      if (categoriesData.error) throw categoriesData.error;
-      setProducts(productsData.data || []);
-      setCategories(categoriesData.data || []);
+      setProducts(productsData || []);
+      setCategories(categoriesData || []);
     } catch (error: any) {
       toast.error(error.message || "Không thể tải dữ liệu");
     } finally {
@@ -71,19 +81,21 @@ const Products = () => {
     }
   };
 
+  /**
+   * Xử lý submit form
+   * @api POST /api/products (thêm mới)
+   * @api PUT /api/products/:id (cập nhật)
+   */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       if (editingProduct) {
-        const { error } = await supabase
-          .from("san_pham")
-          .update(formData)
-          .eq("ma_sp", editingProduct.ma_sp);
-        if (error) throw error;
+        // API: PUT /api/products/:id
+        await productService.update(editingProduct.ma_sp, formData);
         toast.success("Cập nhật sản phẩm thành công!");
       } else {
-        const { error } = await supabase.from("san_pham").insert([formData]);
-        if (error) throw error;
+        // API: POST /api/products
+        await productService.create(formData as Product);
         toast.success("Thêm sản phẩm thành công!");
       }
       setDialogOpen(false);
@@ -94,11 +106,15 @@ const Products = () => {
     }
   };
 
+  /**
+   * Xóa sản phẩm
+   * @api DELETE /api/products/:id
+   */
   const handleDelete = async (ma_sp: string) => {
     if (!confirm("Bạn có chắc muốn xóa sản phẩm này?")) return;
     try {
-      const { error } = await supabase.from("san_pham").delete().eq("ma_sp", ma_sp);
-      if (error) throw error;
+      // API: DELETE /api/products/:id
+      await productService.remove(ma_sp);
       toast.success("Xóa sản phẩm thành công!");
       fetchData();
     } catch (error: any) {
@@ -126,10 +142,10 @@ const Products = () => {
     setFormData({
       ma_sp: product.ma_sp,
       ten_sp: product.ten_sp,
-      mo_ta: "",
+      mo_ta: product.mo_ta || "",
       don_vi_tinh: product.don_vi_tinh || "cái",
       gia_ban_le: product.gia_ban_le || 0,
-      ma_vach: "",
+      ma_vach: product.ma_vach || "",
       trang_thai_sp: product.trang_thai_sp || "đang KD",
       ma_dm: product.ma_dm,
       ngay_them_vao: new Date().toISOString().split('T')[0],

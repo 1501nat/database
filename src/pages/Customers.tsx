@@ -1,3 +1,13 @@
+/**
+ * Customers Page - Trang quản lý khách hàng
+ * @description CRUD khách hàng
+ * @api-connections:
+ *   - GET /api/customers - Lấy danh sách khách hàng
+ *   - POST /api/customers - Tạo khách hàng mới
+ *   - PUT /api/customers/:id - Cập nhật khách hàng
+ *   - DELETE /api/customers/:id - Xóa khách hàng
+ */
+
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
@@ -9,20 +19,12 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { supabase } from "@/integrations/supabase/client";
+// API: Import customerService thay vì Supabase
+import * as customerService from "@/services/customerService";
+import { Customer } from "@/services/customerService";
 import { toast } from "sonner";
 import { Plus, UserCircle, Edit, Trash2, Star } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-
-interface Customer {
-  ma_kh: string;
-  ho_ten: string;
-  sdt: string;
-  email: string;
-  dia_chi: string;
-  hang_thanh_vien: string;
-  diem_tich_luy: number;
-}
 
 const Customers = () => {
   const { user, loading: authLoading } = useAuth();
@@ -53,14 +55,15 @@ const Customers = () => {
     if (user) fetchCustomers();
   }, [user]);
 
+  /**
+   * Lấy danh sách khách hàng
+   * @api GET /api/customers
+   */
   const fetchCustomers = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from("khach_hang")
-        .select("*")
-        .order("ma_kh");
-      if (error) throw error;
+      // API: GET /api/customers
+      const data = await customerService.getAll();
       setCustomers(data || []);
     } catch (error: any) {
       toast.error(error.message || "Không thể tải danh sách khách hàng");
@@ -69,19 +72,21 @@ const Customers = () => {
     }
   };
 
+  /**
+   * Xử lý submit form
+   * @api POST /api/customers (thêm mới)
+   * @api PUT /api/customers/:id (cập nhật)
+   */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       if (editingCustomer) {
-        const { error } = await supabase
-          .from("khach_hang")
-          .update(formData)
-          .eq("ma_kh", editingCustomer.ma_kh);
-        if (error) throw error;
+        // API: PUT /api/customers/:id
+        await customerService.update(editingCustomer.ma_kh, formData);
         toast.success("Cập nhật khách hàng thành công!");
       } else {
-        const { error } = await supabase.from("khach_hang").insert([formData]);
-        if (error) throw error;
+        // API: POST /api/customers
+        await customerService.create(formData as Customer);
         toast.success("Thêm khách hàng thành công!");
       }
       setDialogOpen(false);
@@ -92,11 +97,15 @@ const Customers = () => {
     }
   };
 
+  /**
+   * Xóa khách hàng
+   * @api DELETE /api/customers/:id
+   */
   const handleDelete = async (ma_kh: string) => {
     if (!confirm("Bạn có chắc muốn xóa khách hàng này?")) return;
     try {
-      const { error } = await supabase.from("khach_hang").delete().eq("ma_kh", ma_kh);
-      if (error) throw error;
+      // API: DELETE /api/customers/:id
+      await customerService.remove(ma_kh);
       toast.success("Xóa khách hàng thành công!");
       fetchCustomers();
     } catch (error: any) {
@@ -154,7 +163,7 @@ const Customers = () => {
     { header: "Email", accessor: "email" as keyof Customer },
     {
       header: "Hạng thành viên",
-      accessor: ((row: Customer) => getMemberBadge(row.hang_thanh_vien)) as any,
+      accessor: ((row: Customer) => getMemberBadge(row.hang_thanh_vien || "thường")) as any,
     },
     {
       header: "Điểm tích lũy",

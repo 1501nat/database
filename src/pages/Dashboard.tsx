@@ -1,18 +1,29 @@
+/**
+ * Dashboard Page - Trang tổng quan
+ * @description Hiển thị thống kê và tổng quan hệ thống
+ * @api-connections:
+ *   - GET /api/reports/dashboard - Lấy thống kê tổng quan
+ */
+
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { supabase } from "@/integrations/supabase/client";
+// API: Import service thay vì Supabase client
+import * as reportService from "@/services/reportService";
+import * as branchService from "@/services/branchService";
+import * as employeeService from "@/services/employeeService";
+import * as productService from "@/services/productService";
+import * as customerService from "@/services/customerService";
+import * as inventoryService from "@/services/inventoryService";
 import { 
   Store, 
   Users, 
   Package, 
   ShoppingCart, 
   TrendingUp,
-  DollarSign,
   AlertCircle,
-  CheckCircle
 } from "lucide-react";
 
 const Dashboard = () => {
@@ -35,20 +46,29 @@ const Dashboard = () => {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const [branches, employees, products, customers, inventory] = await Promise.all([
-          supabase.from("chi_nhanh").select("ma_cn", { count: "exact" }),
-          supabase.from("nhan_vien").select("ma_nv", { count: "exact" }),
-          supabase.from("san_pham").select("ma_sp", { count: "exact" }),
-          supabase.from("khach_hang").select("ma_kh", { count: "exact" }),
-          supabase.from("ton_kho").select("*").lt("so_luong_ton", 10),
+        /**
+         * API Calls - Gọi nhiều API song song để lấy thống kê
+         * @endpoints:
+         *   - GET /api/branches
+         *   - GET /api/employees
+         *   - GET /api/products
+         *   - GET /api/customers
+         *   - GET /api/inventory/alerts/low-stock
+         */
+        const [branches, employees, products, customers, lowStock] = await Promise.all([
+          branchService.getAll(),      // API: GET /api/branches
+          employeeService.getAll(),    // API: GET /api/employees
+          productService.getAll(),     // API: GET /api/products
+          customerService.getAll(),    // API: GET /api/customers
+          inventoryService.getLowStock(), // API: GET /api/inventory/alerts/low-stock
         ]);
 
         setStats({
-          branches: branches.count || 0,
-          employees: employees.count || 0,
-          products: products.count || 0,
-          customers: customers.count || 0,
-          lowStockItems: inventory.data?.length || 0,
+          branches: branches.length,
+          employees: employees.length,
+          products: products.length,
+          customers: customers.length,
+          lowStockItems: lowStock.length,
         });
       } catch (error) {
         console.error("Error fetching stats:", error);

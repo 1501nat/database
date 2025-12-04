@@ -1,3 +1,14 @@
+/**
+ * Employees Page - Trang quản lý nhân viên
+ * @description CRUD nhân viên
+ * @api-connections:
+ *   - GET /api/employees - Lấy danh sách nhân viên
+ *   - GET /api/branches - Lấy danh sách chi nhánh
+ *   - POST /api/employees - Tạo nhân viên mới
+ *   - PUT /api/employees/:id - Cập nhật nhân viên
+ *   - DELETE /api/employees/:id - Xóa nhân viên
+ */
+
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
@@ -6,31 +17,23 @@ import { DataTable } from "@/components/DataTable";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { supabase } from "@/integrations/supabase/client";
+// API: Import services thay vì Supabase
+import * as employeeService from "@/services/employeeService";
+import * as branchService from "@/services/branchService";
+import { Employee } from "@/services/employeeService";
+import { Branch } from "@/services/branchService";
 import { toast } from "sonner";
 import { Plus, Users, Edit, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-
-interface Employee {
-  ma_nv: string;
-  ho_ten: string;
-  sdt: string;
-  email: string;
-  ngay_sinh: string;
-  gioi_tinh: string;
-  ngay_vao_lam: string;
-  trang_thai_lam_viec: string;
-  ma_cn: string;
-}
 
 const Employees = () => {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [employees, setEmployees] = useState<Employee[]>([]);
-  const [branches, setBranches] = useState<any[]>([]);
+  const [branches, setBranches] = useState<Branch[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
@@ -61,19 +64,22 @@ const Employees = () => {
     }
   }, [user]);
 
+  /**
+   * Lấy dữ liệu nhân viên và chi nhánh
+   * @api GET /api/employees
+   * @api GET /api/branches
+   */
   const fetchData = async () => {
     try {
       setLoading(true);
+      // API: Gọi song song 2 endpoints
       const [employeesData, branchesData] = await Promise.all([
-        supabase.from("nhan_vien").select("*").order("ma_nv"),
-        supabase.from("chi_nhanh").select("*"),
+        employeeService.getAll(), // API: GET /api/employees
+        branchService.getAll(),   // API: GET /api/branches
       ]);
 
-      if (employeesData.error) throw employeesData.error;
-      if (branchesData.error) throw branchesData.error;
-
-      setEmployees(employeesData.data || []);
-      setBranches(branchesData.data || []);
+      setEmployees(employeesData || []);
+      setBranches(branchesData || []);
     } catch (error: any) {
       toast.error(error.message || "Không thể tải dữ liệu");
     } finally {
@@ -81,19 +87,21 @@ const Employees = () => {
     }
   };
 
+  /**
+   * Xử lý submit form
+   * @api POST /api/employees (thêm mới)
+   * @api PUT /api/employees/:id (cập nhật)
+   */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       if (editingEmployee) {
-        const { error } = await supabase
-          .from("nhan_vien")
-          .update(formData)
-          .eq("ma_nv", editingEmployee.ma_nv);
-        if (error) throw error;
+        // API: PUT /api/employees/:id
+        await employeeService.update(editingEmployee.ma_nv, formData);
         toast.success("Cập nhật nhân viên thành công!");
       } else {
-        const { error } = await supabase.from("nhan_vien").insert([formData]);
-        if (error) throw error;
+        // API: POST /api/employees
+        await employeeService.create(formData as Employee);
         toast.success("Thêm nhân viên thành công!");
       }
       setDialogOpen(false);
@@ -104,11 +112,15 @@ const Employees = () => {
     }
   };
 
+  /**
+   * Xóa nhân viên
+   * @api DELETE /api/employees/:id
+   */
   const handleDelete = async (ma_nv: string) => {
     if (!confirm("Bạn có chắc muốn xóa nhân viên này?")) return;
     try {
-      const { error } = await supabase.from("nhan_vien").delete().eq("ma_nv", ma_nv);
-      if (error) throw error;
+      // API: DELETE /api/employees/:id
+      await employeeService.remove(ma_nv);
       toast.success("Xóa nhân viên thành công!");
       fetchData();
     } catch (error: any) {

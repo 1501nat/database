@@ -1,3 +1,13 @@
+/**
+ * Branches Page - Trang quản lý chi nhánh
+ * @description CRUD chi nhánh cửa hàng
+ * @api-connections:
+ *   - GET /api/branches - Lấy danh sách chi nhánh
+ *   - POST /api/branches - Tạo chi nhánh mới
+ *   - PUT /api/branches/:id - Cập nhật chi nhánh
+ *   - DELETE /api/branches/:id - Xóa chi nhánh
+ */
+
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
@@ -15,20 +25,13 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { supabase } from "@/integrations/supabase/client";
+import { Card, CardContent } from "@/components/ui/card";
+// API: Import branchService thay vì Supabase
+import * as branchService from "@/services/branchService";
+import { Branch } from "@/services/branchService";
 import { toast } from "sonner";
 import { Plus, Building2, Edit, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-
-interface Branch {
-  ma_cn: string;
-  ten_cn: string;
-  dia_chi: string;
-  sdt: string;
-  ngay_mo_cua: string;
-  trang_thai_hoat_dong: string;
-}
 
 const Branches = () => {
   const { user, loading: authLoading } = useAuth();
@@ -63,15 +66,15 @@ const Branches = () => {
     }
   }, [user]);
 
+  /**
+   * Lấy danh sách chi nhánh
+   * @api GET /api/branches
+   */
   const fetchBranches = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from("chi_nhanh")
-        .select("*")
-        .order("ma_cn");
-
-      if (error) throw error;
+      // API: GET /api/branches
+      const data = await branchService.getAll();
       setBranches(data || []);
     } catch (error: any) {
       toast.error(error.message || "Không thể tải danh sách chi nhánh");
@@ -80,23 +83,21 @@ const Branches = () => {
     }
   };
 
+  /**
+   * Xử lý submit form (thêm/sửa)
+   * @api POST /api/branches (thêm mới)
+   * @api PUT /api/branches/:id (cập nhật)
+   */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       if (editingBranch) {
-        const { error } = await supabase
-          .from("chi_nhanh")
-          .update(formData)
-          .eq("ma_cn", editingBranch.ma_cn);
-
-        if (error) throw error;
+        // API: PUT /api/branches/:id
+        await branchService.update(editingBranch.ma_cn, formData);
         toast.success("Cập nhật chi nhánh thành công!");
       } else {
-        const { error } = await supabase
-          .from("chi_nhanh")
-          .insert([formData]);
-
-        if (error) throw error;
+        // API: POST /api/branches
+        await branchService.create(formData as Branch);
         toast.success("Thêm chi nhánh mới thành công!");
       }
 
@@ -108,16 +109,16 @@ const Branches = () => {
     }
   };
 
+  /**
+   * Xóa chi nhánh
+   * @api DELETE /api/branches/:id
+   */
   const handleDelete = async (ma_cn: string) => {
     if (!confirm("Bạn có chắc muốn xóa chi nhánh này?")) return;
 
     try {
-      const { error } = await supabase
-        .from("chi_nhanh")
-        .delete()
-        .eq("ma_cn", ma_cn);
-
-      if (error) throw error;
+      // API: DELETE /api/branches/:id
+      await branchService.remove(ma_cn);
       toast.success("Xóa chi nhánh thành công!");
       fetchBranches();
     } catch (error: any) {
